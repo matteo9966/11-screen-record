@@ -11,8 +11,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "exif-parser": "^0.1.12",
     "readline": "^1.3.0",
-    "screenshot-desktop": "^0.0.0-development"
+    "screenshot-desktop": "^0.0.0-development",
+    "sharp": "^0.32.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"

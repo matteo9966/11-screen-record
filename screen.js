@@ -5,113 +5,149 @@ import { fileURLToPath } from "url";
 import screenshot from "screenshot-desktop";
 import * as readline from "readline";
 import { stdin as input, stdout as output } from "node:process";
+import {
+  readInputs,
+  screenName,
+  takeScreen,
+  getScreensMeta,
+  createDirectory,
+  readStdInputs,
+  removeFile,
+  cropImage
+} from "./utils.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rl = readline.createInterface({ input, output });
-const directorypath = path.join(__dirname);
 
-/**
- *
- * @param {string} directory
- */
-async function createDirectory(directory) {
-  const location = path.join(__dirname, directory);
-  try {
-    await fsProm.mkdir(location);
-    console.log(`${location} created`);
-    return true;
-  } catch (error) {
-    console.log(error);
-    if (
-      typeof error === "object" &&
-      error.hasOwnProperty("code") &&
-      error.code === "EEXIST"
-    ) {
-      console.log("folder already exists");
-    } else {
-      console.log("error while creating the folder");
+async function main() {
+ const screenApp =  await configScreenApp();
+ const cropPath = await screenApp.getScreenCrop(); // only one crop image
+}
+
+class ScreenApp {
+  CONFIG = {
+    interval: null,
+    screenW: null,
+    screenH: null,
+    crop:{
+        top:null,
+        left:null,
+        height:null,
+        width:null,
     }
-    return false;
-  }
-}
-
-function main() {
-  //   createDirectory("./screens");
-
-  //   takeScreen();
-  readInputs();
-}
-
-
-/**
- * @description take screen shots of the whole screen
- */
-async function takeScreen() {
-  const name = screenName("png");
-  const filename = path.join(__dirname, name);
-  const screenPath = await screenshot({ format: "png", filename: name });
-  console.log("created");
-  console.log(screenPath);
-  let cout = 0;
-  let Tid = setTimeout(() => {
-    cout++;
-    console.log(name);
-    if (cout > 10) {
-      clearTimeout(Tid);
-    }
-  }, 1000);
-}
-
-/**
- *
- * @param {string} format png or jpg
- */
-function screenName(format) {
-  const date = new Date();
-  const fullOptions = {
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-    day: "numeric",
-    month: "numeric",
-    year: "numeric",
   };
-  const formatFull = new Intl.DateTimeFormat("it-IT", fullOptions);
 
-  const formattedDate = formatFull.formatToParts(date);
-  let map = {};
-  for (let portion of formattedDate) {
-    map[portion.type] = portion.value;
-  }
+  constructor() {}
 
-  const name = `${map.year}-${map.month}-${map.day}-${map.hour}-${map.minute}-${
-    map.second
-  }-${Date.now()}.${format}`;
-
-  return name;
-}
-
-async function readInputs() {
-  async function getTimeoutInterval() {
-    const timeInmilliseconds = await new Promise((res, _rej) => {
-      rl.question(
-        "inserisci intervallo di cattura in ms (es: 500) min 1000 max 100000\r\n",
-        (answer) => {
-          res(answer);
+  /**
+   * @description get all the screen infos like screenH screenW and time interval
+   */
+  async configScreen() {
+    const milliseconds = await readInputs();
+    this.CONFIG.interval = milliseconds;
+    const screenResolution = await this.getScreenResolution();
+    if (!screenResolution) {
+      console.log("error while detecting screen resolution");
+      const w = await readStdInputs(
+        "inserisci larghezza dello schermo in px",
+        (width) => {
+          return +width && typeof +width === "number";
         }
       );
-    });
-    if (!timeInmilliseconds) {
-      let result = await getTimeoutInterval();
-      return result;
-    }
-    return timeInmilliseconds;
-  }
-  const timeInmilliseconds = await getTimeoutInterval();
+      const h = await readStdInputs(
+        "inserisci altezza dello schermo in px",
+        (height) => {
+          return +height && typeof +height === "number";
+        }
+      );
 
-  console.log(timeInmilliseconds, "milliseconds");
+      this.CONFIG.screenH = h;
+      this.CONFIG.screenW = w;
+    } else {
+      this.CONFIG.screenW = screenResolution.width;
+      this.CONFIG.screenH = screenResolution.height;
+    }
+
+    const offsetTop =  await readStdInputs(
+        "inserisci offset dal top in px",
+        (offset) => {
+          return +offset && typeof +offset === "number";
+        }
+      );
+    
+    const offsetLeft =  await readStdInputs(
+        "inserisci offset dalla sinistra in px",
+        (offset) => {
+          return +offset && typeof +offset === "number";
+        }
+      );
+
+    
+    const cropWidth  =  await readStdInputs(
+        "inserisci larghezza del crop in px",
+        (width) => {
+          return +width && typeof +width === "number";
+        }
+      );
+
+    const cropHeight =  await readStdInputs(
+        "inserisci altezza del crop in px",
+        (height) => {
+          return +height && typeof +height === "number";
+        }
+      );
+
+    this.CONFIG.crop.height = +cropHeight
+    this.CONFIG.crop.width = +cropWidth
+    this.CONFIG.crop.top = +offsetTop
+    this.CONFIG.crop.left = +offsetLeft
+
+
+
+    console.log(this.CONFIG);
+    //take first screen
+  }
+
+  async getScreenResolution() {
+    let pathFile;
+    try {
+      pathFile = await takeScreen();
+      if (!pathFile) {
+        return null;
+      }
+    } catch (error) {
+      console.log(error);
+      return null;
+    }
+
+    const meta = await getScreensMeta(pathFile);
+    const removed = await removeFile(pathFile);
+
+    //delete file
+
+    return { height: meta.imageSize.height, width: meta.imageSize.width };
+  }
+
+  //a function that takes the screen crops it deletes the original one and saves the cropped image
+
+  async getScreenCrop(){
+    try {
+        const pathFile = await takeScreen();
+        const cropPath = await cropImage(pathFile,this.CONFIG.crop.top,this.CONFIG.crop.left,this.CONFIG.crop.width,this.CONFIG.crop.height);
+        console.log(cropPath);
+         return cropPath;
+    } catch (error) {
+        console.log(error)
+        return null;
+    }
+  }
+
 }
 
-async function configScreenApp() {}
+async function configScreenApp() {
+  const screenApp = new ScreenApp();
+  await screenApp.configScreen();
+  return screenApp;
+}
 
 main();
