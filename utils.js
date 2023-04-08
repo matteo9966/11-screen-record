@@ -1,4 +1,5 @@
 import fsProm from "fs/promises";
+import fs from 'fs';
 import path from "path";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -7,6 +8,8 @@ import * as readline from "readline";
 import { stdin as input, stdout as output } from "node:process";
 import ExifParser from "exif-parser";
 import sharp from 'sharp';
+import { createWorker } from "tesseract.js";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rl = readline.createInterface({ input, output });
 
@@ -175,6 +178,67 @@ async function cropImage(path,top,left,width,height){
 }
 
 
+/**
+ * 
+ * @param {string} filepath 
+ * @returns 
+ */
+async function fileExists(filepath){
+  try {
+    await fsProm.access(filepath, fs.F_OK)
+    return true
+  } catch (error) {
+    console.log(error);
+    return false
+  }
+}
+
+async function readAndParseJSONfile(path){
+  try {
+    const file = await fsProm.readFile(path,{encoding:'utf-8'});
+    /**@type {Record<string,any>} */const data = JSON.parse(file);
+    return data
+    
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+}
+/**
+ * 
+ * @param {Awaited<ReturnType<createWorker>>} worker 
+ * @param {string} imagepath 
+ */
+async function readTextFromFile(w,imagepath){
+  let file;
+  let worker = w || await createWorker()
+  if(!worker){
+    return null
+  }
+
+  if(!fileExists(imagepath)){
+    return null
+  }
+
+  try {
+    file = await fsProm.readFile(imagepath);     
+    const imageBuff = await sharp(imagepath).resize(1000).grayscale().toBuffer();
+    await worker.loadLanguage('eng');
+    await worker.initialize('eng');
+    const transformed = await worker.recognize(imageBuff);
+    worker.terminate();
+    return transformed
+
+  } catch (error) {
+    console.log(error)
+    return null
+  }
+  
+
+
+}
+
+
 
 export {
   readInputs,
@@ -184,5 +248,8 @@ export {
   createDirectory,
   readStdInputs,
   removeFile,
-  cropImage
+  cropImage,
+  fileExists,
+  readAndParseJSONfile,
+  readTextFromFile
 };
