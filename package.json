@@ -7,12 +7,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon ./screen.js",
-    "dev:rec":"nodemon ./screenReader.js"
+    "dev:rec": "nodemon ./screenReader.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "exif-parser": "^0.1.12",
+    "node-tesseract-ocr": "^2.2.1",
     "readline": "^1.3.0",
     "screenshot-desktop": "^0.0.0-development",
     "sharp": "^0.32.0",

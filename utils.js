@@ -1,5 +1,5 @@
 import fsProm from "fs/promises";
-import fs from 'fs';
+import fs from "fs";
 import path from "path";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -7,12 +7,18 @@ import screenshot from "screenshot-desktop";
 import * as readline from "readline";
 import { stdin as input, stdout as output } from "node:process";
 import ExifParser from "exif-parser";
-import sharp from 'sharp';
+import sharp from "sharp";
 import { createWorker } from "tesseract.js";
+import tesseract from "node-tesseract-ocr";
+
+const config = {
+  lang: "eng",
+  oem: 1,
+  psm: 3,
+};
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rl = readline.createInterface({ input, output });
-
 
 const FORMAT = "jpg";
 
@@ -156,89 +162,112 @@ async function removeFile(path) {
   }
 }
 
-
 /**
- * 
+ *
  * @param {string} path : path of the created image
  * @param {number} top : offset from the top edge of the image
  * @param {number} left : offset from the left edge of the image
  * @param {number} width : width of the extracted image
  * @param {number} height : height of the extracted image
  */
-async function cropImage(path,top,left,width,height){
-    const croppath = path.split('.')[0] + ".crop." + FORMAT
-    try {
-        const result = await sharp(path).extract({width,top,left,height}).toFile(croppath)
-        console.log(result);
-        return croppath
-    } catch (error) {
-        console.log(error)
-        return null
-    }
-}
-
-
-/**
- * 
- * @param {string} filepath 
- * @returns 
- */
-async function fileExists(filepath){
+async function cropImage(path, top, left, width, height) {
+  const croppath = path.split(".")[0] + ".crop." + FORMAT;
   try {
-    await fsProm.access(filepath, fs.F_OK)
-    return true
+    const result = await sharp(path)
+      .extract({ width, top, left, height })
+      .toFile(croppath);
+    console.log(result);
+    return croppath;
   } catch (error) {
     console.log(error);
-    return false
+    return null;
   }
 }
 
-async function readAndParseJSONfile(path){
+/**
+ *
+ * @param {string} filepath
+ * @returns
+ */
+async function fileExists(filepath) {
   try {
-    const file = await fsProm.readFile(path,{encoding:'utf-8'});
-    /**@type {Record<string,any>} */const data = JSON.parse(file);
-    return data
-    
+    await fsProm.access(filepath, fs.F_OK);
+    return true;
+  } catch (error) {
+    console.log(error);
+    return false;
+  }
+}
+
+async function readAndParseJSONfile(path) {
+  try {
+    const file = await fsProm.readFile(path, { encoding: "utf-8" });
+    /**@type {Record<string,any>} */ const data = JSON.parse(file);
+    return data;
   } catch (error) {
     console.log(error);
     return null;
   }
 }
 /**
- * 
- * @param {Awaited<ReturnType<createWorker>>} worker 
- * @param {string} imagepath 
+ *
+ * @param {Awaited<ReturnType<createWorker>>} worker
+ * @param {string} imagepath
  */
-async function readTextFromFile(w,imagepath){
+async function readTextFromFile(w, imagepath) {
   let file;
-  let worker = w || await createWorker()
-  if(!worker){
-    return null
+  let worker = w || (await createWorker());
+  if (!worker) {
+    return null;
   }
 
-  if(!fileExists(imagepath)){
-    return null
+  if (!fileExists(imagepath)) {
+    return null;
   }
 
   try {
-    file = await fsProm.readFile(imagepath);     
-    const imageBuff = await sharp(imagepath).resize(1000).grayscale().toBuffer();
-    await worker.loadLanguage('eng');
-    await worker.initialize('eng');
-    const transformed = await worker.recognize(imageBuff);
+    file = await fsProm.readFile(imagepath);
+    const imageBuff = await sharp(imagepath)
+      .resize(1000)
+      .grayscale()
+      .toBuffer();
+    await worker.loadLanguage("eng");
+    await worker.initialize("eng");
+    const transformed = await worker.recognize(imageBuff, {
+      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.- ",
+      lang: "eng",
+      tessedit_pageseg_mode: 6,
+    });
     worker.terminate();
-    return transformed
-
+    return transformed;
   } catch (error) {
-    console.log(error)
-    return null
+    console.log(error);
+    return null;
   }
-  
-
-
 }
+/**
+ *
+ * @param {Awaited<ReturnType<createWorker>>} worker
+ * @param {string} imagepath
+ */
+async function readTextFromFile2(imagepath) {
+  if (!fileExists(imagepath)) {
+    return null;
+  }
 
+  try {
+    const imageBuff = await sharp(imagepath)
+      .resize(1000)
+      .grayscale()
+      .toBuffer();
+    const text = await tesseract.recognize(imageBuff, config);
 
+    return text;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+}
 
 export {
   readInputs,
@@ -251,5 +280,6 @@ export {
   cropImage,
   fileExists,
   readAndParseJSONfile,
-  readTextFromFile
+  readTextFromFile,
+  readTextFromFile2,
 };
