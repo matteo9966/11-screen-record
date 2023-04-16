@@ -151,6 +151,9 @@ class ScreenApp {
   async #getScreenCrop() {
     try {
       const pathFile = await takeScreen();
+      if(!pathFile){
+        console.log('error while taking screenshot - takeScreen() returned null')
+      }
       const cropPath = await cropImage(
         pathFile,
         this.CONFIG.crop.top,
@@ -229,3 +232,16 @@ async function configScreenApp() {
 }
 
 main();
+
+
+// screenshot({filename:"./randomimage.jpeg",format:'jpeg'}).then(data=>console.log(data));
+
+// screenshot().then((img) => {
+//   // img: Buffer filled with jpg goodness
+//   // ...
+//   console.log(img)
+// }).catch((err) => {
+//   // ...
+//   console.log('error')
+//   console.log(err)
+// })
