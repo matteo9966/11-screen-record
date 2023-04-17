@@ -16,18 +16,30 @@ import {
   cropImage,
   fileExists,
   readAndParseJSONfile,
+  getAllScreens
 } from "./utils.js";
+import { OperationQueue } from "./operationQueue.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rl = readline.createInterface({ input, output });
 
 async function main() {
   const screenApp = await configScreenApp();
-  screenApp.intervalScreens();
+  // screenApp.intervalScreens();
+//  const savedScreens = await screenApp.loadLeftoverScreenshotsFolder()
+//  console.log(savedScreens)
   // const cropPath = await screenApp.getScreenCrop(); // only one crop image
+  await screenApp.initializeOperationQueue(longExecutingFunction)
+  await screenApp.bootstrapQueue();
 }
 
 class ScreenApp {
+   
+  /**
+   * @type {OperationQueue}
+   */
+  operationQueue;
+
   CONFIG = {
     interval: null,
     screenW: null,
@@ -38,6 +50,7 @@ class ScreenApp {
       height: null,
       width: null,
     },
+    dstFolder:'./screens'
   };
 
   constructor() {}
@@ -122,7 +135,7 @@ class ScreenApp {
       this.CONFIG.crop.height = +cropHeight;
     }
 
-    console.log(this.CONFIG);
+    // console.log(this.CONFIG);
     //take first screen
   }
 
@@ -155,14 +168,14 @@ class ScreenApp {
         console.log('error while taking screenshot - takeScreen() returned null')
       }
       const cropPath = await cropImage(
-        pathFile,
+        path.join(pathFile) ,
         this.CONFIG.crop.top,
         this.CONFIG.crop.left,
         this.CONFIG.crop.width,
         this.CONFIG.crop.height
       );
       await removeFile(pathFile); //remove full screen screenshot after it has been cropped
-      console.log(cropPath);
+      // console.log(cropPath);
       return cropPath;
     } catch (error) {
       console.log(error);
@@ -208,6 +221,7 @@ class ScreenApp {
       cropOffsetTop = null,
       screenW = null,
       screenH = null,
+      dstFolder = null,
     } = { ...screenConfig };
 
     //TODO: validate inputs
@@ -221,7 +235,30 @@ class ScreenApp {
     this.CONFIG.interval = interval;
     this.CONFIG.screenH = screenH;
     this.CONFIG.screenW = screenW;
+    this.CONFIG.dstFolder=dstFolder?dstFolder:this.CONFIG.dstFolder;
   }
+
+  /**
+   * @description if app crashes load previously created crop image inside the queue array.
+   * @returns 
+   */
+  async loadLeftoverScreenshotsFolder(){
+  const files = await getAllScreens({extension:'.crop.jpg',folder:this.CONFIG.dstFolder})
+  return files;
+  }
+
+
+  async initializeOperationQueue(/**@type {(opQueue:OperationQueue,data:string)=>Promise<any>}*/executor){
+    this.operationQueue = new OperationQueue(executor);
+   const screens =  await this.loadLeftoverScreenshotsFolder();
+   this.operationQueue.queue = [...screens.map(scr=>scr.absolute)]; // load the initial screens if any
+  }
+
+  //**todo remove  */
+  async bootstrapQueue(){
+    this.operationQueue && this.operationQueue.enqueue(); 
+  }
+
 }
 
 async function configScreenApp() {
@@ -234,6 +271,8 @@ async function configScreenApp() {
 main();
 
 
+//a mock asinc operation that takes 10 seconds to 
+
 // screenshot({filename:"./randomimage.jpeg",format:'jpeg'}).then(data=>console.log(data));
 
 // screenshot().then((img) => {
@@ -245,3 +284,20 @@ main();
 //   console.log('error')
 //   console.log(err)
 // })
+
+
+
+//this is just the example of usage of the async queue
+async function longExecutingFunction(opqueue,data){
+  opqueue.busy=true;
+  return new Promise((res,reject)=>{
+    setTimeout(()=>{
+      opqueue.busy=false;
+      console.log('compleded operation:', data);
+      res();
+      opqueue.executeOperation();
+    },2000)
+  })  
+
+}
+

@@ -2,6 +2,33 @@
  * @typedef {(operationQueue:OperationQueue,data:any)=>Promise<void>} handler
  */
 
+/** 
+@exampe 
+async function operationHandler(opqueue, data){
+    opqueue.busy=true;
+    await takesometime(data);
+    opqueue.busy=false;
+    opqueue.executeOperation();
+     console.log("completed!")
+}
+
+
+const operationQueue = new OperationQueue(operationHandler);
+const queue = ['one','two','three','four','five'];
+
+operationQueue.queue=queue;
+operationQueue.enqueue('six');
+operationQueue.enqueue('seven');
+operationQueue.enqueue('eight');
+operationQueue.enqueue('nine');
+operationQueue.enqueue('ten');
+
+process.stdin.setEncoding('utf8');
+process.stdin.on('data',(data)=>{
+    const stringdata = data.toString();
+    operationQueue.enqueue(stringdata);
+})
+ */
 export class OperationQueue {
   /**@type {string[]}*/ queue = [];
   /**@type {boolean} */ busy = false;
@@ -26,7 +53,7 @@ export class OperationQueue {
   }
 
   async enqueue(/**@type {string}*/ data) {
-    this.queue.push(data);
+   data && this.queue.push(data);
    await this.executeOperation();
   }
 }
@@ -41,31 +68,5 @@ async function takesometime(data) {
     }, 1000);
   });
 }
-
-
-async function operationHandler(/**@type {OperationQueue}*/opqueue,/**@type {string} */ data){
-    opqueue.busy=true;
-    await takesometime(data);
-    opqueue.busy=false;
-    opqueue.executeOperation();
-     console.log("completed!")
-}
-
-
-const operationQueue = new OperationQueue(operationHandler);
-const queue = ['one','two','three','four','five'];
-
-operationQueue.queue=queue;
-operationQueue.enqueue('six');
-operationQueue.enqueue('seven');
-operationQueue.enqueue('eight');
-operationQueue.enqueue('nine');
-operationQueue.enqueue('ten');
-
-process.stdin.setEncoding('utf8');
-process.stdin.on('data',(data)=>{
-    const stringdata = data.toString();
-    operationQueue.enqueue(stringdata);
-})
 
 

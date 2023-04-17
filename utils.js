@@ -22,7 +22,7 @@ const rl = readline.createInterface({ input, output });
 
 const FORMAT = "jpg";
 
-function screenName(format) {
+function screenName(format, dstFolder = "./screens") {
   const date = new Date();
   const fullOptions = {
     hour: "numeric",
@@ -44,7 +44,7 @@ function screenName(format) {
     map.second
   }-${Date.now()}.${format}`;
 
-  return name;
+  return path.join(dstFolder, name);
 }
 
 async function readInputs() {
@@ -57,7 +57,7 @@ async function readInputs() {
         }
       );
     });
-    console.log();
+    // console.log();
     if (!timeInmilliseconds || !(typeof +timeInmilliseconds === "number")) {
       let result = await getTimeoutInterval();
       return result;
@@ -99,8 +99,8 @@ async function takeScreen() {
   const name = screenName(FORMAT);
   try {
     const screenPath = await screenshot({ format: FORMAT, filename: name });
-    console.log("created");
-    console.log(screenPath);
+    // console.log("created");
+    // console.log(screenPath);
     return screenPath;
   } catch (error) {
     console.log(error);
@@ -132,7 +132,7 @@ async function createDirectory(directory) {
   const location = path.join(__dirname, directory);
   try {
     await fsProm.mkdir(location);
-    console.log(`${location} created`);
+    // console.log(`${location} created`);
     return true;
   } catch (error) {
     console.log(error);
@@ -176,7 +176,7 @@ async function cropImage(path, top, left, width, height) {
     const result = await sharp(path)
       .extract({ width, top, left, height })
       .toFile(croppath);
-    console.log(result);
+    // console.log(result);
     return croppath;
   } catch (error) {
     console.log(error);
@@ -234,7 +234,8 @@ async function readTextFromFile(w, imagepath) {
     await worker.loadLanguage("eng");
     await worker.initialize("eng");
     const transformed = await worker.recognize(imageBuff, {
-      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.- ",
+      tessedit_char_whitelist:
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.- ",
       lang: "eng",
       tessedit_pageseg_mode: 6,
     });
@@ -269,6 +270,45 @@ async function readTextFromFile2(imagepath) {
   }
 }
 
+/**
+ *
+ * @param {{
+ * extension:string,
+ * folder:string,
+ * }} options
+ */
+const getAllScreens = async (options) => {
+  const regex = /(\d*)-(\d*)-(\d*)-(\d*)-(\d*)-(\d*)-(\d*).crop.jpg/
+  
+  try {
+    const content = await fsProm.readdir(path.join(__dirname, options.folder));
+    const files = content
+      .filter((filename) => filename.endsWith(".crop.jpg")).sort((filenameA,filenameB)=>{
+         const timestampA = +filenameA.match(regex)[7]
+         const timestampB = +filenameB.match(regex)[7]
+         console.log(timestampA,timestampB)
+         if(!timestampA || !timestampB){
+          return -1
+         }
+         return (timestampA)-(timestampB);
+
+      })
+      .map((result) => ({
+        absolute: path.join(__dirname, options.folder, result),
+        filename: result,
+      }));
+    return files;
+  } catch (error) {
+    console.log(
+      "error while reading folder",
+      options.folder,
+      "with extension",
+      options.extension
+    );
+    return [];
+  }
+};
+
 export {
   readInputs,
   screenName,
@@ -282,4 +322,5 @@ export {
   readAndParseJSONfile,
   readTextFromFile,
   readTextFromFile2,
+  getAllScreens,
 };

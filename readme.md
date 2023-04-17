@@ -30,6 +30,7 @@ crea un file "screen.config.json"
 - cropOffsetTop: offset dal top per il ritaglio
 - screenW: la larghezza dello schermo (se non inserita l'app tenta di rilevarla automaticamente altrimenti il prompt richiede di inserirla)
 - screenH: l'altezza dello schermo
+- dtsFolder: la cartella in cui vanno a finire gli screen
 
 esempio del contenuto del file di configurazione
 
@@ -41,6 +42,7 @@ esempio del contenuto del file di configurazione
   "cropOffsetLeft": 200,
   "cropOffsetTop": 200,
   "screenW": 1920,
-  "screenH": 1080
+  "screenH": 1080,
+  "dstFolder":"./screens"
 }
 ```
